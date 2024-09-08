@@ -2,120 +2,154 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-public class Tokenizer {
-    // Token types
-    enum TokenType {
-        Word, Punctuation, Number, EndOfLine
+public class MyTokenizer {
+
+    public static void main(String[] args) {
+        // Create a Scanner object for user input
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("Enter the input string:");
+
+        // Read the input string from the user
+        String input = scanner.nextLine();
+
+        // Close the scanner
+        scanner.close();
+
+        // Phase 1: Tokenization
+        List<Token> tokens = tokenize(input);
+        System.out.println("INPUT STRING: " + input);
+        for (Token token : tokens) {
+            System.out.println(token);
+        }
+
+        // Phase 2: Granular Breakdown
+        System.out.println("\nGranular Breakdown:");
+        granularBreakdown(tokens);
     }
 
-    // Token class to hold token value and type
-    class Token {
+    // Token class to hold the token value and its type
+    static class Token {
         String value;
-        TokenType type;
+        String type;
 
-        Token(String value, TokenType type) {
+        Token(String value, String type) {
             this.value = value;
             this.type = type;
         }
 
         @Override
         public String toString() {
-            return "Token: \"" + value + "\" - Type: " + type;
+            return "TOKEN: \"" + value + "\" - Type: " + type;
         }
-    }
-
-    private String delimiter;
-
-    public Tokenizer(String delimiter) {
-        this.delimiter = delimiter;
-    }
-
-    // Check if the character is punctuation
-    private boolean isPunctuation(char c) {
-        return "!,.?;:".indexOf(c) != -1;
-    }
-
-    // Check if the string is a number
-    private boolean isNumber(String s) {
-        return s.matches("\\d+|\\d+\\.\\d+");
     }
 
     // Tokenize the input string
-    public List<Token> tokenize(String input) {
+    public static List<Token> tokenize(String input) {
         List<Token> tokens = new ArrayList<>();
-        StringBuilder temp = new StringBuilder();
 
-        for (char c : input.toCharArray()) {
-            if (c == '\n') {
-                tokens.add(new Token("\\n", TokenType.EndOfLine));
-                continue;
+        // Check if the input contains a delimiter
+        if (input.contains(";")) {
+            // Split the string by newlines
+            String[] lines = input.split("\n");
+
+            for (String line : lines) {
+                if (line.isEmpty()) {
+                    // Skip empty lines (they are likely the result of trailing newlines)
+                    tokens.add(new Token("/n", "End of Line"));
+                    continue;
+                }
+
+                // Split each line by the delimiter (semicolon)
+                String[] parts = line.split(";");
+
+                for (String part : parts) {
+                    // Tokenize each part
+                    tokenizePart(part, tokens);
+                }
+
+                // Add an "End of Line" token for each newline
+                tokens.add(new Token("End of Line", "End of Line"));
             }
-
-            if (String.valueOf(c).equals(delimiter) || Character.isWhitespace(c)) {
-                addToken(temp.toString(), tokens);
-                temp.setLength(0);
-            } else if (isPunctuation(c)) {
-                addToken(temp.toString(), tokens);
-                tokens.add(new Token(String.valueOf(c), TokenType.Punctuation));
-                temp.setLength(0);
-            } else {
-                temp.append(c);
-            }
+        } else {
+            // If no delimiter is present, treat the whole input as one token
+            tokenizePart(input, tokens);
         }
-
-        if (temp.length() > 0) {
-            addToken(temp.toString(), tokens);
-        }
-
         return tokens;
     }
 
-    // Add token based on its type
-    private void addToken(String token, List<Token> tokens) {
-        if (!token.isEmpty()) {
-            if (isNumber(token)) {
-                tokens.add(new Token(token, TokenType.Number));
-            } else {
-                tokens.add(new Token(token, TokenType.Word));
+    // Classify tokens from each part
+    private static void tokenizePart(String part, List<Token> tokens) {
+        StringBuilder currentToken = new StringBuilder();
+        char[] chars = part.toCharArray();
+        boolean hasDecimal = false;
+        boolean hasLetter = false;
+
+        for (int i = 0; i < chars.length; i++) {
+            char ch = chars[i];
+
+            if (Character.isLetter(ch)) {
+                currentToken.append(ch);
+                hasLetter = true;
+            } else if (Character.isDigit(ch)) {
+                currentToken.append(ch);
+            } else if (ch == '.') {
+                if (i > 0 && Character.isDigit(chars[i - 1]) && i < chars.length - 1 && Character.isDigit(chars[i + 1])) {
+                    currentToken.append(ch); // Append period in decimal numbers
+                    hasDecimal = true;
+                } else {
+                    if (currentToken.length() > 0) {
+                        addToken(currentToken.toString(), tokens); // End previous token
+                        currentToken.setLength(0); // Clear token buffer
+                    }
+                    tokens.add(new Token(String.valueOf(ch), "Punctuation"));
+                }
+            } else if (isPunctuation(ch)) {
+                if (currentToken.length() > 0) {
+                    addToken(currentToken.toString(), tokens); // End previous token
+                    currentToken.setLength(0); // Clear token buffer
+                }
+                tokens.add(new Token(String.valueOf(ch), "Punctuation"));
             }
+        }
+
+        if (currentToken.length() > 0) {
+            addToken(currentToken.toString(), tokens); // End last token
         }
     }
 
-    // Display the granular breakdown
-    public void displayGranularBreakdown(List<Token> tokens) {
+    // Helper method to classify and add a token
+    private static void addToken(String token, List<Token> tokens) {
+        if (token.matches("[a-zA-Z]+")) {
+            tokens.add(new Token(token, "Word"));
+        } else if (token.matches("\\d+")) {
+            tokens.add(new Token(token, "Number"));
+        } else if (token.matches("\\d+\\.\\d+")) {
+            tokens.add(new Token(token, "Number")); // Handle decimal numbers
+        } else if (token.matches("[a-zA-Z0-9]+")) {
+            tokens.add(new Token(token, "Alphanumeric"));
+        } else if (token.matches("\\d+\\.\\d+[a-zA-Z]+") || token.matches("[a-zA-Z]+\\d+\\.\\d+")) {
+            tokens.add(new Token(token, "Alphanumeric")); // Handle decimal + word
+        }
+    }
+
+    // Check if a character is punctuation (including @, #, $, %, ^, &, *, ')
+    private static boolean isPunctuation(char ch) {
+        return ch == ',' || ch == '!' || ch == '?' || ch == '-' || ch == '.' || ch == '%' || ch == '$' ||
+                ch == '@' || ch == '#' || ch == '^' || ch == '&' || ch == '*' || ch == '\'';
+    }
+
+    // Phase 2: Granular Breakdown
+    public static void granularBreakdown(List<Token> tokens) {
         for (Token token : tokens) {
-            if (token.type == TokenType.Word || token.type == TokenType.Number) {
-                System.out.print("Token: \"" + token.value + "\" -> ");
+            // Skip punctuation and End of Line tokens in granular breakdown
+            if (!token.type.equals("Punctuation") && !token.type.equals("End of Line")) {
+                System.out.print("TOKEN breakdown of: \"" + token.value + "\" -> ");
                 for (char c : token.value.toCharArray()) {
                     System.out.print("'" + c + "', ");
                 }
                 System.out.println();
             }
         }
-    }
-
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-
-        // User input
-        String delimiter = " "; // Default delimiter is space
-        System.out.println("Delimiter : Space");
-
-        System.out.print("Enter your text: ");
-        String input = scanner.nextLine();
-
-        Tokenizer tokenizer = new Tokenizer(delimiter);
-        List<Token> tokens = tokenizer.tokenize(input);
-
-        // Phase 1 Output
-        System.out.println("Phase 1 Output:");
-        for (Token token : tokens) {
-            System.out.println(token);
-        }
-
-        // Phase 2 Output
-        System.out.println("===================================================");
-        System.out.println("Phase 2 Output (Granular Breakdown):");
-        tokenizer.displayGranularBreakdown(tokens);
     }
 }
