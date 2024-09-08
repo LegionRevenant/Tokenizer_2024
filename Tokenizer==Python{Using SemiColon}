@@ -1,0 +1,92 @@
+class Tokenizer:
+    # Token types
+    WORD = 'Word'
+    PUNCTUATION = 'Punctuation'
+    NUMBER = 'Number'
+    END_OF_LINE = 'EndOfLine'
+
+    class Token:
+        def __init__(self, value, token_type):
+            self.value = value
+            self.token_type = token_type
+
+        def __str__(self):
+            return f'Token: "{self.value}" - Type: {self.token_type}'
+
+    def __init__(self, delimiter, ignore_empty, ignore_newline, zero_based):
+        self.delimiter = delimiter
+        self.ignore_empty = ignore_empty
+        self.ignore_newline = ignore_newline
+        self.zero_based = zero_based
+
+    def is_punctuation(self, c):
+        return c in "!,.?;:-"
+
+    def is_number(self, s):
+        try:
+            float(s)  # Check if the string is a valid number or decimal
+            return True
+        except ValueError:
+            return False
+
+    def tokenize(self, input_str):
+        tokens = []
+        temp = []
+        prev_char = None
+
+        for c in input_str:
+            if c.isspace():
+                if temp:
+                    tokens.append(self.create_token(''.join(temp)))
+                    temp.clear()
+            elif self.is_punctuation(c):
+                if temp:
+                    if c == '.' and temp[-1].isdigit() and prev_char.isdigit():  # Handle decimal numbers
+                        temp.append(c)
+                    else:
+                        tokens.append(self.create_token(''.join(temp)))
+                        temp.clear()
+                        tokens.append(self.Token(c, self.PUNCTUATION))
+                else:
+                    tokens.append(self.Token(c, self.PUNCTUATION))
+            elif c == self.delimiter:
+                if temp:
+                    tokens.append(self.create_token(''.join(temp)))
+                    temp.clear()
+            else:
+                temp.append(c)
+            prev_char = c
+
+        if temp:
+            tokens.append(self.create_token(''.join(temp)))
+
+        return tokens
+
+    def create_token(self, value):
+        if self.is_number(value):
+            return self.Token(value, self.NUMBER)
+        else:
+            return self.Token(value, self.WORD)
+
+    def display_granular_breakdown(self, tokens):
+        for token in tokens:
+            if token.token_type in [self.WORD, self.NUMBER]:
+                print(f'Token: "{token.value}" -> ', end='')
+                for c in token.value:
+                    print(f"'{c}', ", end='')
+                print()
+
+# Example usage
+tokenizer = Tokenizer(';', ignore_empty=True, ignore_newline=True, zero_based=True)
+input_str = "Hello, world! Version 2.0 is here on 2024-08-27."
+tokens = tokenizer.tokenize(input_str)
+
+# Phase 1 Output
+print("Phase 1 Output:")
+for token in tokens:
+    print(token)
+
+# Phase 2 Output
+print("===================================================")
+print("Phase 2 Output (Granular Breakdown):")
+tokenizer.display_granular_breakdown(tokens)
